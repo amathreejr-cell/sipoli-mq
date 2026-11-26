@@ -1,64 +1,6 @@
 <x-app-layout>
-    <x-slot name="header">
-        <div>
-            <h2 class="text-xl font-bold text-gray-800">
-                Detail Tindakan
-            </h2>
-            <p class="mt-1 text-sm text-gray-500">
-                Informasi tindakan dan riwayat penggunaannya dalam pelayanan.
-            </p>
-        </div>
-    </x-slot>
 
-    <div class="py-6">
-        <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-
-            {{-- Alert Success --}}
-            @if (session('success'))
-                <div class="mb-6 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
-                    <div class="flex items-start gap-3">
-                        <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-100 text-emerald-600">
-                            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M5 13l4 4L19 7" />
-                            </svg>
-                        </div>
-
-                        <div>
-                            <p class="font-semibold text-emerald-800">
-                                Berhasil
-                            </p>
-                            <p class="mt-1 text-sm text-emerald-700">
-                                {{ session('success') }}
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            @endif
-
-            {{-- Alert Error --}}
-            @if (session('error'))
-                <div class="mb-6 rounded-xl border border-red-200 bg-red-50 p-4">
-                    <div class="flex items-start gap-3">
-                        <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-red-100 text-red-600">
-                            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                        </div>
-
-                        <div>
-                            <p class="font-semibold text-red-800">
-                                Terjadi Kesalahan
-                            </p>
-                            <p class="mt-1 text-sm text-red-700">
-                                {{ session('error') }}
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            @endif
-
+    <div class="space-y-6">
 
             {{-- Header Tindakan --}}
             <div class="mb-6 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
@@ -379,7 +321,5 @@
                 @endif
 
             </div>
-
-        </div>
     </div>
 </x-app-layout>

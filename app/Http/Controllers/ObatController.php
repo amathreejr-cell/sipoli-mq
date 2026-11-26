@@ -8,13 +8,56 @@ use Illuminate\Http\Request;
 
 class ObatController extends Controller
 {
-    public function index(): View
-    {
-        $obats = Obat::orderBy('nama')
-            ->paginate(10);
 
-        return view('obat.index', compact('obats'));
+
+    public function index(Request $request)
+    {
+        $perPage = (int) $request->input('per_page', 10);
+
+        if (! in_array($perPage, [10, 25, 50, 100], true)) {
+            $perPage = 10;
+        }
+
+        $search = trim($request->input('search', ''));
+
+        // Statistik dihitung dari seluruh data obat.
+        $statistik = Obat::query()
+            ->selectRaw('COUNT(*) as total_obat')
+            ->selectRaw('SUM(CASE WHEN stok <= 0 THEN 1 ELSE 0 END) as jumlah_habis')
+            ->selectRaw('SUM(CASE WHEN stok > 0 AND stok <= stok_minimum THEN 1 ELSE 0 END) as jumlah_menipis')
+            ->first();
+
+        $jumlahObat = (int) $statistik->total_obat;
+        $jumlahHabis = (int) $statistik->jumlah_habis;
+        $jumlahMenipis = (int) $statistik->jumlah_menipis;
+        $jumlahAman = max(0, $jumlahObat - $jumlahHabis - $jumlahMenipis);
+
+        // Pencarian dan pagination daftar obat.
+        $obats = Obat::query()
+            ->when($search !== '', function ($query) use ($search) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('kode', 'like', "%{$search}%")
+                        ->orWhere('nama', 'like', "%{$search}%")
+                        ->orWhere('bentuk', 'like', "%{$search}%")
+                        ->orWhere('satuan', 'like', "%{$search}%");
+                });
+            })
+            ->orderBy('nama')
+            ->paginate($perPage)
+            ->withQueryString();
+
+        return view('obat.index', compact(
+            'obats',
+            'search',
+            'perPage',
+            'jumlahObat',
+            'jumlahHabis',
+            'jumlahMenipis',
+            'jumlahAman'
+        ));
     }
+
+
 
     public function create(): View
     {

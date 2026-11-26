@@ -11,19 +11,15 @@ use App\Http\Controllers\TindakanController;
 use App\Http\Controllers\ObatController;
 use App\Http\Controllers\AlergiController;
 use App\Http\Controllers\KunjunganController;
-use App\Http\Controllers\PemeriksaanController;
-use App\Http\Controllers\KunjunganDiagnosaController;
-use App\Http\Controllers\KunjunganTindakanController;
-use App\Http\Controllers\KunjunganResepController;
 use App\Http\Controllers\MasterRujukanController;
-use App\Http\Controllers\RujukanController;
-use App\Http\Controllers\KunjunganKeputusanController;
-use App\Http\Controllers\KunjunganRingkasanController;
 use App\Http\Controllers\MutasiStokController;
 use App\Http\Controllers\KunjunganDokumenController;
 use App\Http\Controllers\IdentitasPoliklinikController;
 use App\Http\Controllers\UserManagementController;
 use App\Http\Controllers\KoreksiResepController;
+use App\Http\Controllers\PenghapusanMassalSantriController;
+use App\Http\Controllers\LaporanStokObatController;
+use App\Http\Controllers\PemeriksaanTerpaduController;
 use Illuminate\Support\Facades\Route;
 
 
@@ -154,6 +150,33 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
         ->whereNumber('santri')
         ->name('santri.destroy');
 });
+
+// Penghapusan Massal Santri - hanya Admin yang dapat mengakses
+Route::middleware(['auth', 'role:admin'])
+    ->prefix('santri/penghapusan-massal')
+    ->name('santri.penghapusan-massal.')
+    ->group(function () {
+        Route::get('/', [
+            PenghapusanMassalSantriController::class,
+            'index',
+        ])->name('index');
+
+        Route::post('/upload', [
+            PenghapusanMassalSantriController::class,
+            'upload',
+        ])->name('upload');
+
+        Route::post('/hapus', [
+            PenghapusanMassalSantriController::class,
+            'hapus',
+        ])->name('hapus');
+
+        Route::post('/batal', [
+            PenghapusanMassalSantriController::class,
+            'batal',
+        ])->name('batal');
+    });
+
 
 //DATA KAMAR//
 
@@ -417,6 +440,10 @@ Route::middleware(['auth', 'role:admin,petugas'])->group(function () {
 
     Route::put('/alergi/{alergi}', [AlergiController::class, 'update'])
         ->name('alergi.update');
+
+    Route::get('/santri/{santri}/alergi', [AlergiController::class, 'bySantri'])
+        ->whereNumber('santri')
+        ->name('santri.alergi');
 });
 
 // Alergi - hanya admin yang dapat menghapus
@@ -426,6 +453,36 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
         ->whereNumber('alergi')
         ->name('alergi.destroy');
 });
+
+//LAPORAN//
+
+
+Route::middleware(['auth', 'role:admin,petugas,pimpinan'])->group(function () {
+    // Laporan kunjungan yang sudah ada
+    Route::get('/laporan', [KunjunganController::class, 'laporan'])
+        ->name('laporan.index');
+
+    Route::get('/laporan/pdf', [KunjunganController::class, 'laporanPdf'])
+        ->name('laporan.pdf');
+
+    Route::get('/laporan/excel', [KunjunganController::class, 'laporanExcel'])
+        ->name('laporan.excel');
+
+    // Laporan stok obat
+    Route::get('/laporan/stok-obat', [LaporanStokObatController::class, 'index'])
+        ->name('laporan.stok-obat');
+
+    Route::get('/laporan/stok-obat/pdf', [LaporanStokObatController::class, 'pdf'])
+        ->name('laporan.stok-obat.pdf');
+
+    Route::get('/laporan/stok-obat/excel', [LaporanStokObatController::class, 'excel'])
+        ->name('laporan.stok-obat.excel');
+
+    // Laporan mutasi stok obat
+    Route::get('/laporan/mutasi-stok', [LaporanStokObatController::class, 'mutasiStok'])
+        ->name('laporan.mutasi-stok');
+});
+
 
 //KUNJUNGAN//
 
@@ -437,15 +494,6 @@ Route::middleware(['auth', 'role:admin,petugas,pimpinan'])->group(function () {
 
     Route::get('/rekam-medis', [KunjunganController::class, 'rekamMedis'])
         ->name('rekam-medis.index');
-
-    Route::get('/laporan', [KunjunganController::class, 'laporan'])
-        ->name('laporan.index');
-
-    Route::get('/laporan/pdf', [KunjunganController::class, 'laporanPdf'])
-        ->name('laporan.pdf');
-
-    Route::get('/laporan/excel', [KunjunganController::class, 'laporanExcel'])
-        ->name('laporan.excel');
 
     Route::get('/kunjungan/{kunjungan}', [KunjunganController::class, 'show'])
         ->whereNumber('kunjungan')
@@ -466,6 +514,11 @@ Route::middleware(['auth', 'role:admin,petugas,pimpinan'])->group(function () {
         '/kunjungan/{kunjungan}/rekam-medis',
         [KunjunganDokumenController::class, 'rekamMedis']
     )->name('kunjungan.rekam-medis');
+
+    Route::get(
+        '/kunjungan/{kunjungan}/rekam-medis-detail',
+        [KunjunganController::class, 'rekamMedisDetail']
+    )->name('kunjungan.rekam-medis-detail');
 });
 
 // Kunjungan - admin dan petugas dapat menambah/mengedit
@@ -488,115 +541,56 @@ Route::middleware(['auth', 'role:admin,petugas'])->group(function () {
         ->name('santri.riwayat-kunjungan');
 });
 
-// Kunjungan - hanya admin yang dapat membatalkan
+// Kunjungan - hanya admin yang dapat membatalkan & menghapus permanen
 
 Route::middleware(['auth', 'role:admin'])->group(function () {
     Route::delete('/kunjungan/{kunjungan}', [KunjunganController::class, 'destroy'])
         ->whereNumber('kunjungan')
         ->name('kunjungan.destroy');
+
+    Route::delete(
+        '/kunjungan/{kunjungan}/hapus-permanen',
+        [KunjunganController::class, 'hapusPermanen']
+    )
+        ->whereNumber('kunjungan')
+        ->name('kunjungan.hapus-permanen');
 });
 
 
 /*
 |--------------------------------------------------------------------------
-| Alur Pelayanan Kunjungan
+| Pelayanan
 |--------------------------------------------------------------------------
 */
 
-// Pemeriksaan, diagnosa, tindakan, resep, rujukan,
-// keputusan pelayanan, dan ringkasan hanya untuk Admin/Petugas.
+// Pemeriksaan terpadu hanya untuk Admin/Petugas.
 Route::middleware(['auth', 'role:admin,petugas'])->group(function () {
 
-    // Pemeriksaan
+
+    // Pemeriksaan terpadu
+
     Route::get(
-        '/kunjungan/{kunjungan}/pemeriksaan/create',
-        [PemeriksaanController::class, 'create']
-    )->whereNumber('kunjungan')
-        ->name('pemeriksaan.create');
+        '/kunjungan/{kunjungan}/pemeriksaan-terpadu',
+        [PemeriksaanTerpaduController::class, 'create']
+    )->whereNumber('kunjungan')->name('pemeriksaan-terpadu.create');
 
     Route::post(
-        '/kunjungan/{kunjungan}/pemeriksaan',
-        [PemeriksaanController::class, 'store']
-    )->whereNumber('kunjungan')
-        ->name('pemeriksaan.store');
+        '/kunjungan/{kunjungan}/pemeriksaan-terpadu',
+        [PemeriksaanTerpaduController::class, 'store']
+    )->whereNumber('kunjungan')->name('pemeriksaan-terpadu.store');
+});
 
-    // Diagnosa kunjungan
+// Pemeriksaan terpadu hanya untuk Admin
+Route::middleware(['auth', 'role:admin'])->group(function () {
     Route::get(
-        '/kunjungan/{kunjungan}/diagnosa/create',
-        [KunjunganDiagnosaController::class, 'create']
-    )->whereNumber('kunjungan')
-        ->name('kunjungan-diagnosa.create');
+        '/kunjungan/{kunjungan}/pemeriksaan-terpadu/edit',
+        [PemeriksaanTerpaduController::class, 'edit']
+    )->name('pemeriksaan-terpadu.edit');
 
-    Route::post(
-        '/kunjungan/{kunjungan}/diagnosa',
-        [KunjunganDiagnosaController::class, 'store']
-    )->whereNumber('kunjungan')
-        ->name('kunjungan-diagnosa.store');
-
-    // Tindakan kunjungan
-    Route::get(
-        '/kunjungan/{kunjungan}/tindakan/create',
-        [KunjunganTindakanController::class, 'create']
-    )->whereNumber('kunjungan')
-        ->name('kunjungan-tindakan.create');
-
-    Route::post(
-        '/kunjungan/{kunjungan}/tindakan',
-        [KunjunganTindakanController::class, 'store']
-    )->whereNumber('kunjungan')
-        ->name('kunjungan-tindakan.store');
-
-    // Resep kunjungan
-    Route::get(
-        '/kunjungan/{kunjungan}/resep/create',
-        [KunjunganResepController::class, 'create']
-    )->whereNumber('kunjungan')
-        ->name('kunjungan-resep.create');
-
-    Route::post(
-        '/kunjungan/{kunjungan}/resep',
-        [KunjunganResepController::class, 'store']
-    )->whereNumber('kunjungan')
-        ->name('kunjungan-resep.store');
-
-    // Rujukan kunjungan
-    Route::get(
-        '/kunjungan/{kunjungan}/rujukan/create',
-        [RujukanController::class, 'create']
-    )->whereNumber('kunjungan')
-        ->name('rujukan.create');
-
-    Route::post(
-        '/kunjungan/{kunjungan}/rujukan',
-        [RujukanController::class, 'store']
-    )->whereNumber('kunjungan')
-        ->name('rujukan.store');
-
-    // Keputusan pelayanan
-    Route::get(
-        '/kunjungan/{kunjungan}/keputusan',
-        [KunjunganKeputusanController::class, 'create']
-    )->whereNumber('kunjungan')
-        ->name('kunjungan-keputusan.create');
-
-    Route::post(
-        '/kunjungan/{kunjungan}/keputusan',
-        [KunjunganKeputusanController::class, 'store']
-    )->whereNumber('kunjungan')
-        ->name('kunjungan-keputusan.store');
-
-    // Ringkasan dan penyelesaian kunjungan
-    Route::get(
-        '/kunjungan/{kunjungan}/ringkasan',
-        [KunjunganRingkasanController::class, 'show']
-    )->whereNumber('kunjungan')
-        ->name('kunjungan-ringkasan.show');
-
-    Route::post(
-        '/kunjungan/{kunjungan}/selesai',
-        [KunjunganRingkasanController::class, 'selesai']
-    )->whereNumber('kunjungan')
-        ->name('kunjungan-ringkasan.selesai');
+    Route::put(
+        '/kunjungan/{kunjungan}/pemeriksaan-terpadu',
+        [PemeriksaanTerpaduController::class, 'update']
+    )->name('pemeriksaan-terpadu.update');
 });
 
 
@@ -618,16 +612,20 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
 |--------------------------------------------------------------------------
 */
 
+// Admin dan Petugas dapat menambah serta mengedit fasilitas rujukan.
+Route::middleware(['auth', 'role:admin,petugas'])->group(function () {
+    // Pindahkan route ini ke paling atas
+    Route::get('/master-rujukan/create', [MasterRujukanController::class, 'create'])
+        ->name('master-rujukan.create');
+
+    Route::resource('master-rujukan', MasterRujukanController::class)
+        ->except(['index', 'show', 'destroy']);
+});
+
 // Semua role dapat melihat daftar dan detail fasilitas rujukan.
 Route::middleware(['auth', 'role:admin,petugas,pimpinan'])->group(function () {
     Route::resource('master-rujukan', MasterRujukanController::class)
         ->only(['index', 'show']);
-});
-
-// Admin dan Petugas dapat menambah serta mengedit fasilitas rujukan.
-Route::middleware(['auth', 'role:admin,petugas'])->group(function () {
-    Route::resource('master-rujukan', MasterRujukanController::class)
-        ->except(['index', 'show', 'destroy']);
 });
 
 // Hanya Admin yang dapat menghapus fasilitas rujukan.

@@ -22,9 +22,13 @@ class SantriImport implements ToCollection, WithHeadingRow
         */
 
         $rows = $rows->filter(function ($row) {
-            return collect($row)->filter(function ($value) {
-                return $value !== null && $value !== '';
-            })->isNotEmpty();
+            foreach ($row as $value) {
+                if ($value !== null && trim((string) $value) !== '') {
+                    return true;
+                }
+            }
+
+            return false;
         })->values();
 
         if ($rows->isEmpty()) {
@@ -110,6 +114,15 @@ class SantriImport implements ToCollection, WithHeadingRow
                 }
             }
 
+            if (
+                trim((string) ($row['nomor_induk'] ?? '')) === '' &&
+                trim((string) ($row['nama'] ?? '')) === '' &&
+                trim((string) ($row['jenis_kelamin'] ?? '')) === '' &&
+                trim((string) ($row['status'] ?? '')) === ''
+            ) {
+                continue;
+            }
+
             $rowData = [
                 'nomor_induk' => trim((string) ($row['nomor_induk'] ?? '')),
                 'nama' => trim((string) ($row['nama'] ?? '')),
@@ -182,13 +195,13 @@ class SantriImport implements ToCollection, WithHeadingRow
             );
 
             if ($validator->fails()) {
-                $errors = $validator->errors()->all();
-
                 throw ValidationException::withMessages([
                     'file' => 'Kesalahan pada baris '
                         . $excelRow
                         . ': '
-                        . implode(' ', $errors),
+                        . implode(' ', $validator->errors()->all())
+                        . ' Data terbaca: '
+                        . json_encode($rowData, JSON_UNESCAPED_UNICODE),
                 ]);
             }
 

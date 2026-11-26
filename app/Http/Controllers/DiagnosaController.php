@@ -8,13 +8,25 @@ use Illuminate\Http\Request;
 
 class DiagnosaController extends Controller
 {
-    public function index(): View
-    {
-        $diagnosas = Diagnosa::orderBy('nama')
-            ->paginate(10);
 
-        return view('diagnosa.index', compact('diagnosas'));
+    public function index(Request $request)
+    {
+        $search = trim($request->input('search', ''));
+
+        $diagnosas = \App\Models\Diagnosa::query()
+            ->when($search !== '', function ($query) use ($search) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('kode', 'like', "%{$search}%")
+                        ->orWhere('nama', 'like', "%{$search}%");
+                });
+            })
+            ->orderBy('nama')
+            ->paginate(10)
+            ->withQueryString();
+
+        return view('diagnosa.index', compact('diagnosas', 'search'));
     }
+
 
     public function create(): View
     {

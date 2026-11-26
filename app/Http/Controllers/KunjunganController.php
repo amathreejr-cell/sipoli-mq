@@ -16,6 +16,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\DB;
 
 class KunjunganController extends Controller
 {
@@ -69,6 +70,23 @@ class KunjunganController extends Controller
             ->withQueryString();
 
         return view('rekam-medis.index', compact('kunjungans', 'keyword'));
+    }
+
+    public function rekamMedisDetail(Kunjungan $kunjungan)
+    {
+        $kunjungan->load([
+            'santri.alergis',
+            'petugas',
+            'pemeriksaan',
+            'diagnosas',
+            'tindakans',
+            'resep.details.obat',
+            'rujukan.masterRujukan',
+        ]);
+
+        abort_unless($kunjungan->status === 'selesai', 404);
+
+        return view('kunjungan.rekam-medis-detail', compact('kunjungan'));
     }
 
     private function dataLaporan(
@@ -803,7 +821,7 @@ class KunjunganController extends Controller
             && in_array(Auth::user()->role, ['admin', 'petugas'])
         ) {
             return redirect()
-                ->route('pemeriksaan.create', $kunjungan)
+                ->route('pemeriksaan-terpadu.create', $kunjungan)
                 ->with('error', 'Pemeriksaan sedang berlangsung. Silakan lanjutkan proses pemeriksaan.');
         }
 
@@ -1000,5 +1018,91 @@ class KunjunganController extends Controller
         return redirect()
             ->route('kunjungan.index')
             ->with('success', 'Kunjungan berhasil dibatalkan.');
+    }
+
+
+    /**
+     * Menghapus kunjungan secara permanen.
+     * Khusus Admin.
+     */
+    public function hapusPermanen(Kunjungan $kunjungan)
+    {
+        abort_unless(
+            request()->user()?->role === 'admin',
+            403,
+            'Anda tidak memiliki izin untuk menghapus kunjungan.'
+        );
+
+        try {
+            DB::transaction(function () use ($kunjungan) {
+                // Kunci data kunjungan selama proses penghapusan.
+                $dataKunjungan = Kunjungan::query()
+                    ->whereKey($kunjungan->id)
+                    ->lockForUpdate()
+                    ->firstOrFail();
+
+                // Ambil resep yang terkait dengan kunjungan.
+                $resepIds = DB::table('reseps')
+                    ->where('kunjungan_id', $dataKunjungan->id)
+                    ->pluck('id');
+
+                if ($resepIds->isNotEmpty()) {
+                    // Hapus riwayat koreksi resep terlebih dahulu.
+                    DB::table('koreksi_reseps')
+                        ->whereIn('resep_id', $resepIds)
+                        ->delete();
+
+                    // Hapus detail resep.
+                    // Riwayat mutasi stok tetap disimpan.
+                    // Foreign key akan mengatur resep_detail_id menjadi NULL.
+                    DB::table('resep_details')
+                        ->whereIn('resep_id', $resepIds)
+                        ->delete();
+
+                    // Hapus data resep.
+                    DB::table('reseps')
+                        ->whereIn('id', $resepIds)
+                        ->delete();
+                }
+
+                // Hapus data pemeriksaan.
+                DB::table('pemeriksaans')
+                    ->where('kunjungan_id', $dataKunjungan->id)
+                    ->delete();
+
+                // Hapus relasi diagnosa dan tindakan.
+                DB::table('kunjungan_diagnosa')
+                    ->where('kunjungan_id', $dataKunjungan->id)
+                    ->delete();
+
+                DB::table('kunjungan_tindakan')
+                    ->where('kunjungan_id', $dataKunjungan->id)
+                    ->delete();
+
+                // Hapus data rujukan kunjungan.
+                DB::table('rujukans')
+                    ->where('kunjungan_id', $dataKunjungan->id)
+                    ->delete();
+
+                // Hapus kunjungan utama paling akhir.
+                $dataKunjungan->delete();
+            });
+
+            return redirect()
+                ->route('kunjungan.index')
+                ->with(
+                    'success',
+                    'Kunjungan berhasil dihapus secara permanen.'
+                );
+        } catch (\Throwable $e) {
+            report($e);
+
+            return redirect()
+                ->route('kunjungan.index')
+                ->with(
+                    'error',
+                    'Kunjungan gagal dihapus. Tidak ada perubahan yang disimpan.'
+                );
+        }
     }
 }

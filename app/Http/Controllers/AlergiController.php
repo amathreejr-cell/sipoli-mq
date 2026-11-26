@@ -39,6 +39,13 @@ class AlergiController extends Controller
 
         $alergi = Alergi::create($validated);
 
+        if ($request->expectsJson()) {
+            return response()->json([
+                'message' => 'Data alergi berhasil ditambahkan.',
+                'alergi' => $alergi,
+            ], 201);
+        }
+
         return redirect()
             ->route('alergi.show', $alergi)
             ->with('success', 'Data alergi berhasil ditambahkan.');
@@ -72,6 +79,13 @@ class AlergiController extends Controller
 
         $alergi->update($validated);
 
+        if ($request->expectsJson()) {
+            return response()->json([
+                'message' => 'Data alergi berhasil diperbarui.',
+                'alergi' => $alergi->fresh(),
+            ]);
+        }
+
         return redirect()
             ->route('alergi.show', $alergi)
             ->with('success', 'Data alergi berhasil diperbarui.');
@@ -86,5 +100,21 @@ class AlergiController extends Controller
         return redirect()
             ->route('santri.show', $santriId)
             ->with('success', 'Data alergi berhasil dihapus.');
+    }
+
+    public function bySantri(Santri $santri)
+    {
+        return response()->json(
+            $santri->alergis()
+                ->latest()
+                ->get([
+                    'id',
+                    'santri_id',
+                    'jenis',
+                    'nama',
+                    'reaksi',
+                    'keterangan',
+                ])
+        );
     }
 }

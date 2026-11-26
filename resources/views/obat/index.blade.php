@@ -1,5 +1,5 @@
 <x-app-layout>
-    
+
     <main class="space-y-6">
 
         {{-- ALERT --}}
@@ -50,22 +50,22 @@
 
                     <div class="flex flex-wrap gap-2 sm:justify-end">
 
-                    <a href="{{ route('obat.mutasi-stok.index') }}"
-                        class="inline-flex w-fit items-center gap-2 rounded-xl bg-red-500 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-red-700">
-                        Mutasi Stok
-                    </a>
-
-                    @if (in_array(auth()->user()->role, ['admin', 'petugas']))
-                        <a href="{{ route('obat.create') }}"
-                            class="inline-flex w-fit items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700">
-                            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M12 4v16m8-8H4" />
-                            </svg>
-
-                            Tambah Obat
+                        <a href="{{ route('obat.mutasi-stok.index') }}"
+                            class="inline-flex w-fit items-center gap-2 rounded-xl bg-red-500 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-red-700">
+                            Mutasi Stok
                         </a>
-                    @endif
+
+                        @if (in_array(auth()->user()->role, ['admin', 'petugas']))
+                            <a href="{{ route('obat.create') }}"
+                                class="inline-flex w-fit items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700">
+                                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M12 4v16m8-8H4" />
+                                </svg>
+
+                                Tambah Obat
+                            </a>
+                        @endif
 
                     </div>
 
@@ -74,17 +74,6 @@
             </div>
         </div>
 
-
-        {{-- RINGKASAN --}}
-        @php
-            $jumlahObat = $obats->count();
-
-            $jumlahHabis = $obats->where('stok', '<=', 0)->count();
-
-            $jumlahMenipis = $obats
-                ->filter(fn($obat) => $obat->stok > 0 && $obat->stok <= $obat->stok_minimum)
-                ->count();
-        @endphp
 
         <section class="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
 
@@ -149,6 +138,52 @@
 
         </section>
 
+
+        {{-- PENCARIAN DAN JUMLAH DATA --}}
+        <form method="GET" action="{{ route('obat.index') }}"
+            class="mb-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+
+            <div class="flex flex-col gap-3 md:flex-row md:items-end">
+
+                <div class="flex-1">
+                    <label for="search" class="mb-1.5 block text-sm font-semibold text-slate-700">
+                        Cari Obat
+                    </label>
+
+                    <input id="search" type="search" name="search" value="{{ $search }}"
+                        placeholder="Cari nama, kode, bentuk, atau satuan obat..."
+                        class="w-full rounded-xl border-slate-300 text-sm focus:border-emerald-500 focus:ring-emerald-500">
+                </div>
+
+                <div>
+                    <label for="per_page" class="mb-1.5 block text-sm font-semibold text-slate-700">
+                        Data per halaman
+                    </label>
+
+                    <select id="per_page" name="per_page"
+                        class="w-full rounded-xl border-slate-300 text-sm focus:border-emerald-500 focus:ring-emerald-500">
+                        @foreach ([10, 25, 50, 100] as $jumlah)
+                            <option value="{{ $jumlah }}" @selected($perPage == $jumlah)>
+                                {{ $jumlah }} data
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+
+                <button type="submit"
+                    class="rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700">
+                    Tampilkan
+                </button>
+
+                @if ($search !== '' || $perPage != 10)
+                    <a href="{{ route('obat.index') }}"
+                        class="rounded-xl border border-slate-300 px-5 py-2.5 text-center text-sm font-semibold text-slate-600 hover:bg-slate-50">
+                        Reset
+                    </a>
+                @endif
+
+            </div>
+        </form>
 
         {{-- TABEL --}}
         <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -464,6 +499,25 @@
             </div>
 
         </section>
+
+
+        {{-- PAGINATION --}}
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p class="text-sm text-slate-500">
+                Menampilkan
+                <span class="font-semibold text-slate-700">{{ $obats->firstItem() ?? 0 }}</span>
+                sampai
+                <span class="font-semibold text-slate-700">{{ $obats->lastItem() ?? 0 }}</span>
+                dari
+                <span class="font-semibold text-slate-700">{{ $obats->total() }}</span>
+                obat
+            </p>
+
+            <div>
+                {{ $obats->onEachSide(1)->links() }}
+            </div>
+        </div>
+
 
     </main>
     </div>

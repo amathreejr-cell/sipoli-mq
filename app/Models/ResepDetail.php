@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class ResepDetail extends Model
 {
@@ -31,5 +32,10 @@ class ResepDetail extends Model
     public function obat(): BelongsTo
     {
         return $this->belongsTo(Obat::class);
+    }
+
+    public function mutasiStoks(): HasMany
+    {
+        return $this->hasMany(MutasiStok::class, 'resep_detail_id');
     }
 }

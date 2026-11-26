@@ -6,6 +6,7 @@ use App\Models\IdentitasPoliklinik;
 use App\Models\Kunjungan;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Response;
+use Illuminate\View\View;
 
 class KunjunganDokumenController extends Controller
 {
@@ -130,63 +131,117 @@ class KunjunganDokumenController extends Controller
     }
 
     public function rekamMedis(Kunjungan $kunjungan): Response
-{
-    if ($kunjungan->status !== 'selesai') {
-        abort(403, 'Rekam medis hanya dapat dicetak setelah kunjungan selesai.');
+    {
+        if ($kunjungan->status !== 'selesai') {
+            abort(403, 'Rekam medis hanya dapat dicetak setelah kunjungan selesai.');
+        }
+
+        $kunjungan->load([
+            'santri',
+            'petugas',
+            'pemeriksaan',
+            'diagnosas',
+            'tindakans',
+            'resep.details.obat',
+            'rujukan.masterRujukan',
+        ]);
+
+        $identitas = IdentitasPoliklinik::first();
+
+        if (!$identitas) {
+            abort(404, 'Identitas poliklinik belum dikonfigurasi.');
+        }
+
+        $bulanRomawi = [
+            1 => 'I',
+            2 => 'II',
+            3 => 'III',
+            4 => 'IV',
+            5 => 'V',
+            6 => 'VI',
+            7 => 'VII',
+            8 => 'VIII',
+            9 => 'IX',
+            10 => 'X',
+            11 => 'XI',
+            12 => 'XII',
+        ];
+
+        $nomorDokumen = str_pad($kunjungan->id, 3, '0', STR_PAD_LEFT)
+            . '/REKMED/POLIKLINIK-MQ/'
+            . $bulanRomawi[$kunjungan->tanggal->month]
+            . '/'
+            . $kunjungan->tanggal->year;
+
+        $pdf = Pdf::loadView(
+            'kunjungan.dokumen.rekam-medis',
+            compact(
+                'kunjungan',
+                'identitas',
+                'nomorDokumen'
+            )
+        );
+
+        $pdf->setPaper('A4', 'portrait');
+
+        return $pdf->stream(
+            'rekam-medis-' .
+                $kunjungan->santri->nomor_induk .
+                '.pdf'
+        );
     }
 
-    $kunjungan->load([
-        'santri',
-        'petugas',
-        'pemeriksaan',
-        'diagnosas',
-        'tindakans',
-        'resep.details.obat',
-        'rujukan.masterRujukan',
-    ]);
 
-    $identitas = IdentitasPoliklinik::first();
+    /**
+     * Menampilkan rekam medis biasa tanpa membuat PDF.
+     */
+    public function rekamMedisDetail(Kunjungan $kunjungan): View
+    {
+        if ($kunjungan->status !== 'selesai') {
+            abort(403, 'Rekam medis hanya dapat dilihat setelah kunjungan selesai.');
+        }
 
-    if (!$identitas) {
-        abort(404, 'Identitas poliklinik belum dikonfigurasi.');
-    }
+        $kunjungan->load([
+            'santri.alergis',
+            'petugas',
+            'pemeriksaan',
+            'diagnosas',
+            'tindakans',
+            'resep.details.obat',
+            'rujukan.masterRujukan',
+        ]);
 
-    $bulanRomawi = [
-        1 => 'I',
-        2 => 'II',
-        3 => 'III',
-        4 => 'IV',
-        5 => 'V',
-        6 => 'VI',
-        7 => 'VII',
-        8 => 'VIII',
-        9 => 'IX',
-        10 => 'X',
-        11 => 'XI',
-        12 => 'XII',
-    ];
+        $identitas = IdentitasPoliklinik::first();
 
-    $nomorDokumen = str_pad($kunjungan->id, 3, '0', STR_PAD_LEFT)
-        . '/REKMED/POLIKLINIK-MQ/'
-        . $bulanRomawi[$kunjungan->tanggal->month]
-        . '/'
-        . $kunjungan->tanggal->year;
+        if (!$identitas) {
+            abort(404, 'Identitas poliklinik belum dikonfigurasi.');
+        }
 
-    $pdf = Pdf::loadView(
-        'kunjungan.dokumen.rekam-medis',
-        compact(
+        $bulanRomawi = [
+            1 => 'I',
+            2 => 'II',
+            3 => 'III',
+            4 => 'IV',
+            5 => 'V',
+            6 => 'VI',
+            7 => 'VII',
+            8 => 'VIII',
+            9 => 'IX',
+            10 => 'X',
+            11 => 'XI',
+            12 => 'XII',
+        ];
+
+        $nomorDokumen = str_pad($kunjungan->id, 3, '0', STR_PAD_LEFT)
+            . '/REKMED/POLIKLINIK-MQ/'
+            . $bulanRomawi[$kunjungan->tanggal->month]
+            . '/'
+            . $kunjungan->tanggal->year;
+
+        return view('kunjungan.rekam-medis', compact(
             'kunjungan',
             'identitas',
             'nomorDokumen'
-        )
-    );
-
-    $pdf->setPaper('A4', 'portrait');
-
-    return $pdf->stream(
-        'rekam-medis-' .
-        $kunjungan->santri->nomor_induk .
-        '.pdf'
-    );
-}
+        ));
+    }
 }

@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
     <title>Masuk | SIPOLI MQ</title>
+    <link rel="icon" type="image/png" href="{{ asset('favicon.png') }}">
 
     {{-- CSS & JS lokal melalui Vite --}}
     @vite(['resources/css/app.css', 'resources/js/app.js'])
@@ -148,7 +149,7 @@
                     </div>
 
                     <p class="text-[11px] font-medium text-slate-500">
-                        Sistem Informasi Poliklinik MQ
+                        Sistem Informasi Poliklinik Madrasatu Qur an
                     </p>
 
                 </div>
@@ -214,7 +215,7 @@
                             Terintegrasi
                         </span>
 
-                        untuk Santri
+                        untuk Santri MQ
 
                     </h1>
 

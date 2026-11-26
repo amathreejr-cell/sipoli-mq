@@ -9,6 +9,7 @@ use App\Models\Rujukan;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
+use Illuminate\Support\Facades\DB;
 
 class DashboardController extends Controller
 {
@@ -19,6 +20,27 @@ class DashboardController extends Controller
     {
         $periodeKunjungan = $request->input('periode_kunjungan', 'hari');
         $periodeDiagnosa = $request->input('periode_diagnosa', 'hari');
+
+        $periodeGender = $request->input('periode_gender', 'hari');
+
+        [$awalGender, $akhirGender] = match ($periodeGender) {
+            'minggu' => [
+                now()->startOfWeek()->toDateString(),
+                now()->endOfWeek()->toDateString(),
+            ],
+            'bulan' => [
+                now()->startOfMonth()->toDateString(),
+                now()->endOfMonth()->toDateString(),
+            ],
+            'tahun' => [
+                now()->startOfYear()->toDateString(),
+                now()->endOfYear()->toDateString(),
+            ],
+            default => [
+                today()->toDateString(),
+                today()->toDateString(),
+            ],
+        };
 
         $grafikKunjungan = match ($periodeKunjungan) {
 
@@ -129,11 +151,97 @@ class DashboardController extends Controller
                 ->values(),
         };
 
+        // Statistik pelayanan berdasarkan gender dan periode
+
+        $hitungKunjunganGender = function (?string $gender = null) use ($awalGender, $akhirGender) {
+            $query = Kunjungan::query()
+                ->whereBetween('tanggal', [$awalGender, $akhirGender]);
+
+            if ($gender !== null) {
+                $query->whereHas('santri', function ($q) use ($gender) {
+                    $q->where('jenis_kelamin', $gender);
+                });
+            }
+
+            return $query->count();
+        };
+
+        $hitungDiagnosaGender = function (?string $gender = null) use ($awalGender, $akhirGender) {
+            $query = DB::table('kunjungan_diagnosa')
+                ->join('kunjungans', 'kunjungan_diagnosa.kunjungan_id', '=', 'kunjungans.id')
+                ->join('santri', 'kunjungans.santri_id', '=', 'santri.id')
+                ->whereBetween('kunjungans.tanggal', [$awalGender, $akhirGender]);
+
+            if ($gender !== null) {
+                $query->where('santri.jenis_kelamin', $gender);
+            }
+
+            return $query->count();
+        };
+
+        $hitungObatGender = function (?string $gender = null) use ($awalGender, $akhirGender) {
+            $query = DB::table('reseps')
+                ->join('kunjungans', 'reseps.kunjungan_id', '=', 'kunjungans.id')
+                ->join('santri', 'kunjungans.santri_id', '=', 'santri.id')
+                ->whereBetween('kunjungans.tanggal', [$awalGender, $akhirGender])
+                ->whereExists(function ($subquery) {
+                    $subquery->select(DB::raw(1))
+                        ->from('resep_details')
+                        ->whereColumn('resep_details.resep_id', 'reseps.id');
+                });
+
+            if ($gender !== null) {
+                $query->where('santri.jenis_kelamin', $gender);
+            }
+
+            return $query->distinct()->count('reseps.kunjungan_id');
+        };
+
+        $hitungRujukanGender = function (?string $gender = null) use ($awalGender, $akhirGender) {
+            $query = Rujukan::query()
+                ->whereHas('kunjungan', function ($q) use ($awalGender, $akhirGender) {
+                    $q->whereBetween('tanggal', [$awalGender, $akhirGender]);
+                });
+
+            if ($gender !== null) {
+                $query->whereHas('kunjungan.santri', function ($q) use ($gender) {
+                    $q->where('jenis_kelamin', $gender);
+                });
+            }
+
+            return $query->count();
+        };
+
+        $statistikGender = [
+            'kunjungan' => [
+                'global' => $hitungKunjunganGender(),
+                'laki' => $hitungKunjunganGender('L'),
+                'perempuan' => $hitungKunjunganGender('P'),
+            ],
+            'diagnosa' => [
+                'global' => $hitungDiagnosaGender(),
+                'laki' => $hitungDiagnosaGender('L'),
+                'perempuan' => $hitungDiagnosaGender('P'),
+            ],
+            'obat' => [
+                'global' => $hitungObatGender(),
+                'laki' => $hitungObatGender('L'),
+                'perempuan' => $hitungObatGender('P'),
+            ],
+            'rujukan' => [
+                'global' => $hitungRujukanGender(),
+                'laki' => $hitungRujukanGender('L'),
+                'perempuan' => $hitungRujukanGender('P'),
+            ],
+        ];
+
         $data = [
             // Statistik utama
             'totalKunjungan' => Kunjungan::count(),
             'totalDiagnosa' => Diagnosa::where('is_active', true)->count(),
             'totalRujukan' => Rujukan::count(),
+            'periodeGender' => $periodeGender,
+            'statistikGender' => $statistikGender,
 
             // Statistik pelayanan hari ini
             'kunjunganHariIni' => Kunjungan::whereDate('tanggal', today())->count(),
